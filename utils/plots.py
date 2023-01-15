@@ -60,12 +60,15 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=3):
     color = color or [random.randint(0, 255) for _ in range(3)]
     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
+    midpointbox = (int((c1[0] + c2[0]) / 2), int((c1[1] + c2[1]) / 2))
+    print(f'{label} at {midpointbox}')
     if label:
         tf = max(tl - 1, 1)  # font thickness
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+    return midpointbox
 
 
 def plot_one_box_PIL(box, img, color=None, label=None, line_thickness=None):
@@ -472,7 +475,8 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None):
                 if conf < 0.5:
                     continue
             cv2.circle(im, (int(x_coord), int(y_coord)), radius, (int(r), int(g), int(b)), -1)
-
+            # cv2.putText(im,str(kid),(int(x_coord), int(y_coord)),1, 5, (int(r), int(g), int(b)),2)
+    id_list = []
     for sk_id, sk in enumerate(skeleton):
         r, g, b = pose_limb_color[sk_id]
         pos1 = (int(kpts[(sk[0]-1)*steps]), int(kpts[(sk[0]-1)*steps+1]))
@@ -486,4 +490,12 @@ def plot_skeleton_kpts(im, kpts, steps, orig_shape=None):
             continue
         if pos2[0] % 640 == 0 or pos2[1] % 640 == 0 or pos2[0]<0 or pos2[1]<0:
             continue
+        # print(f'id is {sk_id} pos1 is {pos1}, pos2 is {pos2}')
         cv2.line(im, pos1, pos2, (int(r), int(g), int(b)), thickness=2)
+        midpoint = (int((pos1[0]+pos2[0])/2),int((pos1[1]+pos2[1])/2))
+        # print(f'id is {sk_id} pos is {midpoint}')
+        id_coord = [sk_id,midpoint]
+        id_list.append(id_coord)
+        cv2.putText(im, str(sk_id), midpoint, 1, 2, (int(r), int(g), int(b)), 2)
+
+    return id_list
