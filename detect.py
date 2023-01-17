@@ -14,9 +14,10 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 from posetest2 import pose_add
+from posetest2 import obj_localize
 from utils.datasets import letterbox
 
-def detect(save_img=True):
+def detect(save_img=False):
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
@@ -53,9 +54,11 @@ def detect(save_img=True):
     if webcam:
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, stride=stride)
+        dataset = LoadStreams(source, img_size=960, stride=64)
+        # dataset = LoadStreams(source, img_size=imgsz, stride=stride)
     else:
-        dataset = LoadImages(source, img_size=imgsz, stride=stride)
+        # dataset = LoadImages(source, img_size=imgsz, stride=stride)
+        dataset = LoadImages(source, img_size=960, stride=64)
 
     # Get names and colors
     names = model.module.names if hasattr(model, 'module') else model.names
@@ -99,6 +102,7 @@ def detect(save_img=True):
             pred = apply_classifier(pred, modelc, img, im0s)
 
         # Process detections
+        obj_list = []#Detection list
         for i, det in enumerate(pred):  # detections per image
             # print('loop start')
             if webcam:  # batch_size >= 1
@@ -130,10 +134,44 @@ def detect(save_img=True):
                     if save_img or view_img:  # Add bbox to image
                         # print('here')
                         label = f'{names[int(cls)]} {conf:.2f}'
-                        cv2.imwrite('image_base.jpg', im0)
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
+                        # cv2.imwrite('image_base.jpg', im0)
+                        obj_locate = plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
+                        obj_list.append(obj_locate)
             # print("Add pose")
+            print(f'obj list is {obj_list}')
+            cv2.imwrite('image_base.jpg', im0)
             im0, out_list = pose_add(im0)
+            kpt_dict = {
+                0: 'Lower Left Leg',
+                1: 'Upper Left Leg',
+                2: 'Lower Right Leg',
+                3: 'Upper Right Leg',
+                4: "Groin",
+                5: 'Left Torso',
+                6: 'Right Torso',
+                7: 'Upper Chest',
+                8: 'Upper Left Arm',
+                9: 'Upper Right Arm',
+                10: 'Lower Left Arm',
+                11: 'Lower Right Arm',
+                12: "Head",
+                13: "Head",
+                14: "Head",
+                15: "Head",
+                16: "Head",
+                17: "Left Shoulder",
+                18: "Right Shoulder"
+            }
+            # print(out_list)
+            obj_pos = obj_localize(obj_list,out_list)
+            # final output format: [[obj,[skeleton #, kptid]]]
+            for obj in obj_pos:
+                if obj:
+                    if len(obj) >= 2:
+                        med_device = obj[0]
+                        skeleton, kpid = obj[1]
+                        print(f'{med_device} on {kpt_dict[kpid]} of Patient {skeleton}')
+
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
